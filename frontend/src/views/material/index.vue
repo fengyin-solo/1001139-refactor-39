@@ -7,6 +7,7 @@
       </div>
       <div class="page-actions">
         <button class="btn primary" type="button" @click="openCreate">登记养护材料</button>
+        <RouterLink class="btn" to="/batch_genealogy">批次谱系图</RouterLink>
         <button class="btn" type="button" @click="exportRows">导出养护材料清单</button>
       </div>
     </header>

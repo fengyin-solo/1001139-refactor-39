@@ -16,7 +16,9 @@ class Store:
         }
 
     def module_names(self) -> list[str]:
-        return sorted(self._tables)
+        # 下划线开头的是内部表（批次谱系、事件日志等），不进业务模块清单，
+        # 保证概览与健康检查等旧取值接口的输出保持不变。
+        return sorted(name for name in self._tables if not name.startswith("_"))
 
     def rows(self, module: str) -> list[dict[str, Any]]:
         return self._tables.setdefault(module, [])
