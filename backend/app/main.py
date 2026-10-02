@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.lineage.service import bootstrap_demo
 from app.routers import ROUTERS
 from app.store import store
 
@@ -36,3 +37,9 @@ def health() -> dict[str, object]:
 def overview() -> dict[str, object]:
     """运营概览：把各业务模块的待处理量汇总成看板卡片。"""
     return store.overview()
+
+
+@app.on_event("startup")
+def bootstrap_lineage() -> None:
+    """启动时幂等引导示例批次谱系；已存在数据则跳过。"""
+    bootstrap_demo()

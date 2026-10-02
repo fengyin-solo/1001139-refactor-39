@@ -8,6 +8,7 @@
       <div class="page-actions">
         <button class="btn primary" type="button" @click="openCreate">登记养护材料</button>
         <button class="btn" type="button" @click="exportRows">导出养护材料清单</button>
+        <RouterLink class="btn ghost" to="/lineage">查看批次谱系图</RouterLink>
       </div>
     </header>
 
@@ -31,12 +32,18 @@
       <thead>
         <tr>
           <th v-for="column in columns" :key="column">{{ column }}</th>
+          <th>批次谱系</th>
           <th>可执行动作</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="row in rows" :key="String(row.id)">
           <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
+          <td>
+            <RouterLink class="link" :to="{ path: '/lineage', query: row['批次编号'] ? { batch_no: row['批次编号'] } : { material_id: String(row.id) } }">
+              {{ row['批次编号'] ? `谱系 ${row['批次编号']}` : '尚无批次' }}
+            </RouterLink>
+          </td>
           <td class="row-actions">
             <button
               v-for="action in actions"
@@ -50,7 +57,7 @@
           </td>
         </tr>
         <tr v-if="!rows.length">
-          <td :colspan="columns.length + 1" class="empty-state">暂无养护材料数据，可先登记养护材料</td>
+          <td :colspan="columns.length + 2" class="empty-state">暂无养护材料数据，可先登记养护材料</td>
         </tr>
       </tbody>
     </table>
@@ -70,7 +77,7 @@ import { request } from '@/api/client'
 type Row = Record<string, string | number | null>
 
 const ENDPOINT = '/api/material'
-const columns = ["材料编号", "材料名称", "材料类别", "规格型号", "供应商", "进场日期", "存放地点", "材料状态"]
+const columns = ["材料编号", "材料名称", "材料类别", "规格型号", "供应商", "进场日期", "存放地点", "材料状态", "批次编号", "批次数量"]
 const actions = ["领用材料", "送检材料", "退还不合格"]
 const statuses = ["在库", "已领用", "待检测", "不合格"]
 const stats = [{"label": "在库材料", "value": 0}, {"label": "待检测材料", "value": 0}, {"label": "不合格材料", "value": 0}]

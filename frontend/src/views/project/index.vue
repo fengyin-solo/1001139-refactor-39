@@ -8,6 +8,7 @@
       <div class="page-actions">
         <button class="btn primary" type="button" @click="openCreate">登记养护工程</button>
         <button class="btn" type="button" @click="exportRows">导出养护工程清单</button>
+        <RouterLink class="btn ghost" to="/lineage">批次谱系图</RouterLink>
       </div>
     </header>
 
@@ -31,12 +32,23 @@
       <thead>
         <tr>
           <th v-for="column in columns" :key="column">{{ column }}</th>
+          <th>批次结论</th>
           <th>可执行动作</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="row in rows" :key="String(row.id)">
           <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
+          <td>
+            <RouterLink
+              v-if="(row['领用批次'] as string[] | undefined)?.length"
+              class="link"
+              :to="{ path: '/lineage', query: { project_id: String(row.id) } }"
+            >
+              {{ (row['领用批次'] as string[]).join('、') }}（待装 {{ row['待装载数量'] ?? 0 }}）
+            </RouterLink>
+            <span v-else class="empty-state">—</span>
+          </td>
           <td class="row-actions">
             <button
               v-for="action in actions"
@@ -50,7 +62,7 @@
           </td>
         </tr>
         <tr v-if="!rows.length">
-          <td :colspan="columns.length + 1" class="empty-state">暂无养护工程数据，可先登记养护工程</td>
+          <td :colspan="columns.length + 2" class="empty-state">暂无养护工程数据，可先登记养护工程</td>
         </tr>
       </tbody>
     </table>
@@ -67,7 +79,7 @@ import { onMounted, ref } from 'vue'
 
 import { request } from '@/api/client'
 
-type Row = Record<string, string | number | null>
+type Row = Record<string, string | number | string[] | null>
 
 const ENDPOINT = '/api/project'
 const columns = ["工程编号", "工程名称", "工程类型", "施工路段", "承建单位", "开工日期", "竣工日期", "工程状态"]

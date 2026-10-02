@@ -17,7 +17,9 @@
 ├── backend/                  FastAPI（Python） 后端
 │   ├── app/routers/          每个业务模块一组接口
 │   ├── app/services/         业务规则与状态流转
-│   └── app/store.py          内存数据仓库与示例数据
+│   ├── app/lineage/          批次谱系域（节点/边/事件/台账）
+│   ├── app/store.py          内存数据仓库、事务快照与示例数据
+│   └── tests/                谱系域 pytest 用例
 ├── .gitignore
 └── docker-compose.yml
 ```
@@ -74,3 +76,32 @@ npm run dev
   `backend/app/routers/<模块>.py`，业务规则在 `backend/app/services/<模块>.py`。
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
+
+## 批次谱系图（`/lineage`）
+
+养护材料按「供应商到场 → 仓管入库 → 工程领用 → 车辆装载」串成可浏览的批次谱系，
+退料、换货、跨工程调拨以新节点续链（边关系分别为 `derived` / `replace` /
+`transfer`），历史领用按原批次以 `historical` 节点存档。实现集中在
+`backend/app/lineage/`：
+
+- **谱系存储**：`_lineage_nodes`（节点）+ `_lineage_edges`（父子边）。
+- **结论回写三处**：批次台账 `_lineage_batches`（同步在 `material` 行叠加
+  `批次编号/批次数量/材料状态`）、工程清单 `_lineage_project_materials`
+  （同步在 `project` 行叠加 `领用批次/待装载数量`）、车辆待办
+  `_lineage_vehicle_todos`（同步在 `vehicle` 行叠加 `待装载批次/待装载数量`）。
+  旧取值接口字段与分页结构不变，新字段只做叠加。
+- **谱系写入与库存事件同事务**：`Store.transaction()` 提交前快照，任何一步抛错
+  整批回滚；换货/迁移不会留下半个批次。
+- **消息重放幂等**：写接口都接受 `event_id` 幂等键（`POST /api/lineage/events/*`），
+  事件落 `_lineage_events` 日志；`POST /api/lineage/events/replay` 按序重放，
+  重复键直接返回首次结果，不重复扣减。
+- **并发领用版本门闩**：批次行带 `version`，领用携带 `expected_version`，过期返回
+  `409 version_conflict`；全局写锁保证内存仓库下的串行提交与不超卖。
+- **存量无批次迁移**：`GET /api/lineage/migration/unbatched` 查看待迁移材料，
+  `POST /api/lineage/migration/run` 整批归位为 `MIG-xxxx` 批次（`migration` 节点），
+  任一目标失败整批回退。
+- **自检**：`GET /api/lineage/consistency` 校验台账余额与事件汇总、边完整性、
+  工程清单汇总、回写字段及事件幂等键。
+
+服务启动时会幂等引导一条示例谱系（`bootstrap_demo()`），可用
+`POST /api/lineage/bootstrap` 重复触发。测试：`cd backend && python3 -m pytest`。
